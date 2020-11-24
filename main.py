@@ -395,13 +395,18 @@ class InstaDownloader:
                                       'x-ig-app-id': '1217981644879628',
                                       'x-ig-www-claim': 'hmac.AR12vyN6Dx6fOn4XsPl-LmkVZPgwUDD7dz-Q3dDNKmDERqFV'})
         while self.handle_inbox():
-            time.sleep(120)
+            time.sleep(config["inbox_refresh_delay"])
 
     def handle_inbox(self):
         r = self._session.get(config["urls"]["inbox"], params={'persistentBadging': True, 'folder': None,
-                                                               'limit': 20, 'thread_message_limit': 10})
+                                                               'limit': config["inbox_limit"], 'thread_message_limit': 2})
+        if not r.ok:
+            self.log(r.text)
+            return True
         inbox = json.loads(r.text)
-        if inbox["inbox"]["unseen_count"] != 0:
+        unseen_count = inbox["inbox"]["unseen_count"]
+        self.log(f'{unseen_count} unread chats in inbox!')
+        if unseen_count != 0:
             return self.handle_unreads(inbox["inbox"]["threads"])
         return True
 
@@ -410,32 +415,83 @@ class InstaDownloader:
             last_msg = thread["items"][0]
             sender_id = last_msg["user_id"]
             if sender_id != config["bot_user_id"]:
-                thread_title = thread["thread_title"]
-                if not self.handle_message(last_msg, thread_title):
+                if not self.handle_message(last_msg, thread):
                     return False
         return True
 
-    def handle_message(self, msg, thread_title):
+    def handle_message(self, msg, thread):
+        if len(thread["items"]) == 1:
+            self.greet_user()
+        sender = thread["thread_title"]
         item_type = msg["item_type"]
+        links = []
         if item_type == 'media_share':  # Photo / video/ carousel post
-            pass
+            post = msg["media_share"]
+            if "carousel_media" in post:
+                self.log(f'Processing carousel media ({len(post["carousel_media"])}) from {sender}...')
+                for carousel_item in post["carousel_media"]:
+                    if "video_versions" in carousel_item:
+                        links.append(carousel_item["video_versions"][0]["url"])
+                    elif "image_versions2" in carousel_item:
+                        links.append(carousel_item["image_versions2"]["candidates"][0]["url"])
+                    else:
+                        self.handle_unsupported()
+            elif "video_versions" in post:
+                links.append(post["video_versions"][0]["url"])
+            elif "image_versions2" in post:
+                links.append(post["image_versions2"]["candidates"][0]["url"])
+            else:
+                self.handle_unsupported()
         elif item_type == 'clip':  # Reels post
-            pass
+            reel = msg["clip"]["clip"]
+            if "video_versions" in reel:
+                links.append(reel["video_versions"][0]["url"])
+            else:
+                self.handle_unsupported()
         elif item_type == 'story_share':  # Photo / video story
-            pass
+            story = msg["story_share"]["media"]
+            if "video_versions" in story:
+                links.append(story["video_versions"][0]["url"])
+            elif "image_versions2" in story:
+                links.append(story["image_versions2"]["candidates"][0]["url"])
+            else:
+                self.handle_unsupported()
         elif item_type == 'felix_share':  # IGTV post
-            pass
-        elif item_type == 'text' and thread_title in config["admin_usernames"]:  # Admin text message
-            text = msg["text"].lower()
-            prefix = config["admin_command_prefix"]
-            if text.startswith(prefix):
-                command = text[len(prefix):]
-                return self.handle_admin_command(command)
+            igtv = msg["felix_share"]
+            if "video" in igtv:
+                links.append(igtv["video"]["video_versions"][0]["url"])
+            else:
+                self.handle_unsupported()
+        elif item_type == 'text':  # Text message
+            if sender in config["admin_usernames"]:
+                text = msg["text"].lower()
+                prefix = config["admin_command_prefix"]
+                if text.startswith(prefix):
+                    command = text[len(prefix):]
+                    return self.handle_admin_command(command, sender)
+            else:
+                self.handle_unsupported()
+        elif item_type == 'media':  # Media
+            self.handle_unsupported()
+        elif item_type == 'raven_media':  # Disappearing media
+            self.handle_unsupported()
+        elif item_type == 'voice_media':  # Voice message
+            self.handle_unsupported()
+        elif item_type == 'animated_media':  # Sticker and gifs
+            self.handle_unsupported()
+        self._session.post(config["urls"]["seen"].format(thread_id=thread["thread_id"], item_id=msg["item_id"]))
+        print(links)
         return True
 
-    def handle_admin_command(self, command):
+    def greet_user(self):
+        pass  # Welcome user and tell them what is supported and what isn't
+
+    def handle_unsupported(self):
+        pass  # Tell the user that the media type is not supported
+
+    def handle_admin_command(self, command, admin):
         if command == 'shutdown':
-            self.log('Received shutdown command, shutting down...')
+            self.log(f'Received shutdown command from {admin}, shutting down...')
             return False
         return True
 
@@ -583,7 +639,7 @@ def get_legacy_session_filename(username: str) -> str:
 
 
 if __name__ == '__main__':
-    open('log.txt', "w+")
+    open('log.txt', "w+")  # Wipe / create log file
     print('    ____           __        ____                      __                __          ')
     print('   /  _/___  _____/ /_____ _/ __ \____ _      ______  / /___  ____ _____/ /__  _____ ')
     print('   / // __ \/ ___/ __/ __ `/ / / / __ \ | /| / / __ \/ / __ \/ __ `/ __  / _ \/ ___/ ')
@@ -603,5 +659,4 @@ if __name__ == '__main__':
         worker.main()
     except KeyboardInterrupt:
         print("\nInterrupted by user.", file=sys.stderr)
-        # Save session if it is useful
         exit_handler()

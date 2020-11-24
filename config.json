@@ -1,4 +1,5 @@
 {
+    "inbox_refresh_delay": 60,
     "inbox_limit": 50,
     "bot_user_id": 40381479993,
     "admin_usernames": ["willyjl_"],
@@ -8,6 +9,7 @@
         "_mid": "https://www.instagram.com/web/__mid/",
         "login": "https://www.instagram.com/accounts/login/ajax/",
         "2fa_login": "https://www.instagram.com/accounts/login/ajax/two_factor/",
-        "inbox": "https://i.instagram.com/api/v1/direct_v2/inbox/"
+        "inbox": "https://i.instagram.com/api/v1/direct_v2/inbox/",
+        "seen": "https://i.instagram.com/api/v1/direct_v2/threads/{thread_id}/items/{item_id}/seen/"
     }
 }
