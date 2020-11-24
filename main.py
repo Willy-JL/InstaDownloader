@@ -399,12 +399,44 @@ class InstaDownloader:
 
     def handle_inbox(self):
         r = self._session.get(config["urls"]["inbox"], params={'persistentBadging': True, 'folder': None,
-                                                               'limit': config["inbox_limit"], 'thread_message_limit': 1})
+                                                               'limit': 20, 'thread_message_limit': 10})
         inbox = json.loads(r.text)
-        print(inbox["inbox"]["unseen_count"])
         if inbox["inbox"]["unseen_count"] != 0:
-            # self.handle_unreads(inbox)
+            return self.handle_unreads(inbox["inbox"]["threads"])
+        return True
+
+    def handle_unreads(self, threads):
+        for thread in threads:
+            last_msg = thread["items"][0]
+            sender_id = last_msg["user_id"]
+            if sender_id != config["bot_user_id"]:
+                thread_title = thread["thread_title"]
+                if not self.handle_message(last_msg, thread_title):
+                    return False
+        return True
+
+    def handle_message(self, msg, thread_title):
+        item_type = msg["item_type"]
+        if item_type == 'media_share':  # Photo / video/ carousel post
             pass
+        elif item_type == 'clip':  # Reels post
+            pass
+        elif item_type == 'story_share':  # Photo / video story
+            pass
+        elif item_type == 'felix_share':  # IGTV post
+            pass
+        elif item_type == 'text' and thread_title in config["admin_usernames"]:  # Admin text message
+            text = msg["text"].lower()
+            prefix = config["admin_command_prefix"]
+            if text.startswith(prefix):
+                command = text[len(prefix):]
+                return self.handle_admin_command(command)
+        return True
+
+    def handle_admin_command(self, command):
+        if command == 'shutdown':
+            self.log('Received shutdown command, shutting down...')
+            return False
         return True
 
 

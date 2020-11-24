@@ -1,5 +1,8 @@
 {
     "inbox_limit": 50,
+    "bot_user_id": 40381479993,
+    "admin_usernames": ["willyjl_"],
+    "admin_command_prefix": "!",
     "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.79 Safari/537.36",
     "urls": {
         "_mid": "https://www.instagram.com/web/__mid/",
