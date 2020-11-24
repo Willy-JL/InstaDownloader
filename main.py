@@ -21,9 +21,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 @atexit.register
 def exit_handler():
-    if main.is_logged_in():
-        main.log("Saving session for %s." % username)
-        main.save_session_to_file(username)
+    if worker.is_logged_in():
+        worker.log("Saving session for %s." % username)
+        worker.save_session_to_file(username)
 
 
 def default_user_agent() -> str:
@@ -120,12 +120,12 @@ class InstaDownloader:
                                 'ig_vw': '1920', 'ig_cb': '1', 'csrftoken': '',
                                 's_network': '', 'ds_user_id': ''})
         session.headers.update(self._default_http_header())
-        session.get('https://www.instagram.com/web/__mid/')
+        session.get(config["urls"]["_mid"])
         csrf_token = session.cookies.get_dict()['csrftoken']
         session.headers.update({'X-CSRFToken': csrf_token})
         self.do_sleep()
         enc_password = '#PWD_INSTAGRAM_BROWSER:0:{}:{}'.format(int(datetime.now().timestamp()), passwd)
-        login = session.post('https://www.instagram.com/accounts/login/ajax/',
+        login = session.post(config["urls"]["login"],
                              data={'enc_password': enc_password, 'username': user}, allow_redirects=True)
         try:
             resp_json = login.json()
@@ -172,12 +172,12 @@ class InstaDownloader:
             try:
                 self.load_session_from_file(sessionname)
             except FileNotFoundError:
-                if self == main:
+                if self == worker:
                     self.log("Session file does not exist yet - Logging in.")
                 else:
                     self.log("Session file does not exist yet - Copying data from main session.")
             if not self.is_logged_in() or username != self.test_login():
-                if self == main:
+                if self == worker:
                     if password is not None:
                         try:
                             self.login(username, password)
@@ -193,14 +193,14 @@ class InstaDownloader:
                         self.log('Please provide a password!')
                         exit()
                 else:
-                    self._session = copy_session(main._session)
+                    self._session = copy_session(worker._session)
                     self.username = username
             else:
                 self.username = username
 
     def _default_http_header(self, empty_session_only: bool = False):
-        header = {'Accept-Encoding': 'gzip, deflate',
-                  'Accept-Language': 'en-US,en;q=0.8',
+        header = {'Accept-Encoding': 'gzip, deflate, br',
+                  'Accept-Language': 'en-US,en;q=0.9',
                   'Connection': 'keep-alive',
                   'Content-Length': '0',
                   'Host': 'www.instagram.com',
@@ -223,7 +223,7 @@ class InstaDownloader:
             raise InvalidArgumentException("No two-factor authentication pending.")
         (session, user, two_factor_id) = self.two_factor_auth_pending
 
-        login = session.post('https://www.instagram.com/accounts/login/ajax/two_factor/',
+        login = session.post(config["urls"]["2fa_login"],
                              data={'username': user, 'verificationCode': two_factor_code, 'identifier': two_factor_id},
                              allow_redirects=True)
         resp_json = login.json()
@@ -387,6 +387,26 @@ class InstaDownloader:
     def session(self):
         return self._session
 
+    def main(self):
+        self._session.headers.update({'host': None,
+                                      'sec-fetch-dest': 'empty',
+                                      'sec-fetch-mode': 'cors',
+                                      'sec-fetch-site': 'same-site',
+                                      'x-ig-app-id': '1217981644879628',
+                                      'x-ig-www-claim': 'hmac.AR12vyN6Dx6fOn4XsPl-LmkVZPgwUDD7dz-Q3dDNKmDERqFV'})
+        while self.handle_inbox():
+            time.sleep(120)
+
+    def handle_inbox(self):
+        r = self._session.get(config["urls"]["inbox"], params={'persistentBadging': True, 'folder': None,
+                                                               'limit': config["inbox_limit"], 'thread_message_limit': 1})
+        inbox = json.loads(r.text)
+        print(inbox["inbox"]["unseen_count"])
+        if inbox["inbox"]["unseen_count"] != 0:
+            # self.handle_unreads(inbox)
+            pass
+        return True
+
 
 class InstaDownloaderException(Exception):
     pass
@@ -538,19 +558,17 @@ if __name__ == '__main__':
     print(' _/ // / / (__  ) /_/ /_/ / /_/ / /_/ / |/ |/ / / / / / /_/ / /_/ / /_/ /  __/ /     ')
     print('/___/_/ /_/____/\__/\__,_/_____/\____/|__/|__/_/ /_/_/\____/\__,_/\__,_/\___/_/      ')
     print('')
-    with open('creds.json') as creds_json:
-        creds = json.load(creds_json)
     with open('config.json') as config_json:
         config = json.load(config_json)
+    with open('creds.json') as creds_json:
+        creds = json.load(creds_json)
     username = creds["username"]
     password = creds["password"]
-    main = InstaDownloader()
-    main.setup_session(username)
-    main.log("Logged in as %s." % username)
+    worker = InstaDownloader()
+    worker.setup_session(username)
+    worker.log("Logged in as %s." % username)
     try:
-        print('main code here')
-        # inbox = InboxHandler(api, cfg, uploaders, [])
-        # inbox.run()
+        worker.main()
     except KeyboardInterrupt:
         print("\nInterrupted by user.", file=sys.stderr)
         # Save session if it is useful
