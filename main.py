@@ -3,6 +3,7 @@ import re
 import sys
 import json
 import time
+import uuid
 import atexit
 import pickle
 import random
@@ -11,8 +12,6 @@ import hashlib
 import platform
 import tempfile
 import textwrap
-import uuid
-
 import requests
 import urllib.parse
 import requests.utils
