@@ -1,15 +1,40 @@
 {
-    "inbox_refresh_delay": 60,
+    "inbox_refresh_delay": 15,
     "inbox_limit": 50,
     "bot_user_id": 40381479993,
     "admin_usernames": ["willyjl_"],
     "admin_command_prefix": "!",
-    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.79 Safari/537.36",
+    "user_agent": "Instagram 89.0.0.21.101 Android (19/4.4; 320dpi; 720x1280; Xiaomi; HM 1SW; armani; qcom; en_US)",
     "urls": {
         "_mid": "https://www.instagram.com/web/__mid/",
         "login": "https://www.instagram.com/accounts/login/ajax/",
         "2fa_login": "https://www.instagram.com/accounts/login/ajax/two_factor/",
         "inbox": "https://i.instagram.com/api/v1/direct_v2/inbox/",
-        "seen": "https://i.instagram.com/api/v1/direct_v2/threads/{thread_id}/items/{item_id}/seen/"
+        "pending_inbox": "https://i.instagram.com/api/v1/direct_v2/pending_inbox/?cursor=",
+        "accept_pending": "https://i.instagram.com/api/v1/direct_v2/threads/approve_multiple/",
+        "seen": "https://i.instagram.com/api/v1/direct_v2/threads/{thread_id}/items/{item_id}/seen/",
+        "image_upload": "https://i.instagram.com/rupload_igphoto/direct_{upload_id}",
+        "send_message": "https://i.instagram.com/api/v1/direct_v2/threads/broadcast/text/",
+        "send_link": "https://i.instagram.com/api/v1/direct_v2/threads/broadcast/link/"
+    },
+    "lang": {
+        "greet": "Welcome to InstaDownloader! We currently support: Posts (photo, video and slides), Stories (photo and video), Reels (up to 60s), IGTVs (up to 60s) and Profiles (user icon). Please refrain from sending anything other than those media types. Processing can take a while so please don't spam!",
+        "error": "Something went wrong...",
+        "unsupported": "That content type is not supported!",
+        "private": "That account is private, we'll try to follow them!",
+        "deleted": "That content was deleted!",
+        "expired": "That content has expired!",
+        "unavailable": "That content is unavailable!",
+        "invalid_slides_item": "Slides post contains an invalid item!",
+        "invalid_post_type": "Post is of an invalid type!",
+        "invalid_story_type": "Story is of an invalid type!",
+        "invalid_reel_type": "Reel is of an invalid type!",
+        "invalid_igtv_type": "IGTV is of an invalid type!",
+        "no_profile_icon": "Profile doesn't have an icon!",
+        "no_text_messages": "Please refrain from sending the bot anything other than media!",
+        "no_media": "Are you stupid?",
+        "no_disappearing_media": "Disappearing media is not supported!",
+        "no_voice_messages": "Voice messages are not supported!",
+        "no_stickers_gifs": "Stickers and GIFs are not supported!"
     }
 }

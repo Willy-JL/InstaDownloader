@@ -11,6 +11,8 @@ import hashlib
 import platform
 import tempfile
 import textwrap
+import uuid
+
 import requests
 import urllib.parse
 import requests.utils
@@ -48,6 +50,7 @@ class InstaDownloader:
 
         self.user_agent = user_agent if user_agent is not None else default_user_agent()
         self.username = None
+        self.user_id = None
         self.request_timeout = request_timeout
         self._session = self.get_anonymous_session()
         self.sleep = sleep
@@ -166,6 +169,7 @@ class InstaDownloader:
         session.headers.update({'X-CSRFToken': login.cookies['csrftoken']})
         self._session = session
         self.username = user
+        self.user_id = int(self._session.cookies.get_dict()["ds_user_id"])
 
     def setup_session(self, sessionname):
         if username is not None:
@@ -387,13 +391,102 @@ class InstaDownloader:
     def session(self):
         return self._session
 
+    def send_message(self, recipient, message):
+        send_msg = self._session.post(config["urls"]["send_message"], data={
+            'text': message,
+            '_uuid': str(uuid.uuid4()),
+            '_csrftoken': self._session.cookies.get_dict()['csrftoken'],
+            'recipient_users': f'[[{recipient}]]',
+            '_uid': '40381479993',
+            'action': 'send_item',
+            'client_context': str(uuid.uuid4())
+        }, headers={
+            'Content-type': 'application/x-www-form-urlencoded; charset=UTF-8'})
+        if not send_msg.ok:
+            self.log(f'Failed to send text message!\n'
+                     f'Status code: {send_msg.status_code}\n'
+                     f'URL: {send_msg.url}\n'
+                     f'Headers: {send_msg.request.headers}\n'
+                     f'Response: {send_msg.text}')
+
+    def send_link(self, recipient, link, text):
+        send_link = self._session.post(config["urls"]["send_link"], data={
+            'link_text': link,
+            'link_urls': f'["{link}"]',
+            '_uuid': str(uuid.uuid4()),
+            '_csrftoken': self._session.cookies.get_dict()['csrftoken'],
+            'recipient_users': f'[[{recipient}]]',
+            '_uid': '40381479993',
+            'action': 'send_item',
+            'client_context': str(uuid.uuid4())
+        }, headers={
+            'Content-type': 'application/x-www-form-urlencoded; charset=UTF-8'})
+        if not send_link.ok:
+            self.log(f'Failed to send link message!\n'
+                     f'Status code: {send_link.status_code}\n'
+                     f'URL: {send_link.url}\n'
+                     f'Headers: {send_link.request.headers}\n'
+                     f'Response: {send_link.text}')
+
     def main(self):
-        self._session.headers.update({'host': None,
+        self._session.headers.update({'Host': None,
                                       'sec-fetch-dest': 'empty',
                                       'sec-fetch-mode': 'cors',
                                       'sec-fetch-site': 'same-site',
-                                      'x-ig-app-id': '1217981644879628',
-                                      'x-ig-www-claim': 'hmac.AR12vyN6Dx6fOn4XsPl-LmkVZPgwUDD7dz-Q3dDNKmDERqFV'})
+                                      'X-IG-App-ID': '567067343352427'})
+
+        """
+        upload_id = int(round(time.time() * 10000))
+        thread_id = 340282366841710300949128138086638340421
+        img_bytes = open('test2.jpg', 'rb').read()
+        self._session.headers.update({
+            'referer': None,  # f'https://www.instagram.com/direct/t/{thread_id}',
+            'sec-fetch-dest': None,
+            'sec-fetch-mode': None,
+            'sec-fetch-site': None,  # 'same-origin',
+            'Content-type': "application/x-www-form-urlencoded; charset=UTF-8",
+            'Expect': '100-continue',
+            'Offset': '0',
+            'X-Entity-Length': str(len(img_bytes)),
+            'X-Entity-Name': 'image/jpeg',  # f'direct_{upload_id}',
+            'X-Entity-Type': 'image/jpeg',
+            'X-Istagram-Rupload-Params': json.dumps({
+                'upload_media_height': "0",
+                'direct_v2': "1",
+                'upload_media_width': "0",
+                'upload_media_duration_ms': "0",
+                'upload_id': str(upload_id),
+                'retry_context': json.dumps({
+                    'num_step_auto_retry': 0,
+                    'num_reupload': 0,
+                    'num_step_manual_retry': 0
+                }),
+                'media_type': "1"
+            }),
+            'x-instagram-ajax': None,  # 'bc3d5af829ea',
+            'X-IG-Capabilities': '3Q4=',
+            'X-IG-Connection-Type': 'WIFI',
+            'X_FB_VIDEO_WATERFALL_ID': str(uuid.uuid4()),
+            'x-ig-www-claim': None,  # 'hmac.AR12vyN6Dx6fOn4XsPl-LmkVZPgwUDD7dz-Q3dDNKmDERvHK',
+            'Origin': None,
+            'X-Requested-With': None,
+            'C-CSRFToken': None,
+            'Cookie2': '$Version=1',
+            'Host': 'i.instagram.com',
+            "Accept-Encoding": "gzip, deflate",
+            "Accept-Language": "en-US",
+            "X-CSRFToken": None,
+            "User-Agent": "Instagram 89.0.0.21.101 Android (19/4.4; 320dpi; 720x1280; Xiaomi; HM 1SW; armani; qcom; en_US)"
+        })
+        self._session.cookies.set('rur', 'PRN')
+        self._session.cookies.set('ds_user', '_insta.downloader_')
+        upl = self._session.post(config["urls"]["image_upload"].format(upload_id=upload_id), data=img_bytes)
+        print(upl.status_code)
+        print(upl.request.headers)
+        print(upl.text)
+        print(upl.url)
+        """
+
         while self.handle_inbox():
             time.sleep(config["inbox_refresh_delay"])
 
@@ -404,90 +497,209 @@ class InstaDownloader:
             self.log(r.text)
             return True
         inbox = json.loads(r.text)
+        if inbox["pending_requests_total"] > 0:
+            self.log(f'{inbox["pending_requests_total"]} pending message requests!')
+            r_pending = self._session.get(config["urls"]["pending_inbox"])
+            pending_inbox = json.loads(r_pending.text)
+            to_be_accepted = []
+            for thread in pending_inbox["inbox"]["threads"]:
+                to_be_accepted.append(str(thread["thread_id"]))
+            accept = self._session.post(config["urls"]["accept_pending"], data={'thread_ids': json.dumps(to_be_accepted)})
+            if not accept.ok:
+                self.log(f'Failed to accept message requests!\n'
+                         f'Status code: {accept.status_code}\n'
+                         f'URL: {accept.url}\n'
+                         f'Headers: {accept.request.headers}\n'
+                         f'Response: {accept.text}')
+            else:
+                self.log('Accepted all pending requests!')
+                r = self._session.get(config["urls"]["inbox"], params={'persistentBadging': True, 'folder': None,
+                                                                       'limit': config["inbox_limit"], 'thread_message_limit': 2})
+                if not r.ok:
+                    self.log(r.text)
+                    return True
+                inbox = json.loads(r.text)
         unseen_count = inbox["inbox"]["unseen_count"]
-        self.log(f'{unseen_count} unread chats in inbox!')
         if unseen_count != 0:
+            self.log(f'{unseen_count} unread chats in inbox!')
             return self.handle_unreads(inbox["inbox"]["threads"])
         return True
 
     def handle_unreads(self, threads):
         for thread in threads:
             last_msg = thread["items"][0]
+            sender = thread["thread_title"]
             sender_id = last_msg["user_id"]
             if sender_id != config["bot_user_id"]:
-                if not self.handle_message(last_msg, thread):
+                if not self.handle_message(last_msg, sender, sender_id, thread):
                     return False
+        self.log('All done!')
         return True
 
-    def handle_message(self, msg, thread):
+    def handle_message(self, msg, sender, sender_id, thread):
         if len(thread["items"]) == 1:
-            self.greet_user()
-        sender = thread["thread_title"]
+            self.greet_user(sender_id)
         item_type = msg["item_type"]
         links = []
-        if item_type == 'media_share':  # Photo / video/ carousel post
-            post = msg["media_share"]
-            if "carousel_media" in post:
-                self.log(f'Processing carousel media ({len(post["carousel_media"])}) from {sender}...')
-                for carousel_item in post["carousel_media"]:
-                    if "video_versions" in carousel_item:
-                        links.append(carousel_item["video_versions"][0]["url"])
-                    elif "image_versions2" in carousel_item:
-                        links.append(carousel_item["image_versions2"]["candidates"][0]["url"])
+        try:
+            if item_type == 'media_share':  # Photo / video/ carousel post
+                post = msg["media_share"]
+                if "carousel_media" in post:
+                    self.log(f'Processing carousel media ({len(post["carousel_media"])}) from @{sender}...')
+                    for carousel_item in post["carousel_media"]:
+                        if "video_versions" in carousel_item:
+                            links.append(carousel_item["video_versions"][0]["url"])
+                        elif "image_versions2" in carousel_item:
+                            links.append(carousel_item["image_versions2"]["candidates"][0]["url"])
+                        else:
+                            self.log(f'Found invalid carousel item from @{sender}...')
+                            self.handle_unsupported('carousel_item', sender_id)
+                elif "video_versions" in post:
+                    self.log(f'Processing video post from @{sender}...')
+                    links.append(post["video_versions"][0]["url"])
+                elif "image_versions2" in post:
+                    self.log(f'Processing image post from @{sender}...')
+                    links.append(post["image_versions2"]["candidates"][0]["url"])
+                else:
+                    self.log(f'Received invalid media share (post) from @{sender}...')
+                    self.handle_unsupported('post', sender_id)
+            elif item_type == 'placeholder':  # Post unavailable
+                reason = msg["placeholder"]["message"]
+                if 'has a private account' in reason:
+                    self.handle_unsupported('private', sender_id)
+                elif 'it was deleted' in reason:
+                    self.handle_unsupported('deleted', sender_id)
+                else:
+                    self.handle_unsupported('unavailable', sender_id)
+
+            elif item_type == 'story_share':  # Photo / video story
+                if "media" in msg["story_share"]:
+                    story = msg["story_share"]["media"]
+                    if "video_versions" in story:
+                        self.log(f'Processing video story from @{sender}...')
+                        links.append(story["video_versions"][0]["url"])
+                    elif "image_versions2" in story:
+                        self.log(f'Processing image story from @{sender}...')
+                        links.append(story["image_versions2"]["candidates"][0]["url"])
                     else:
-                        self.handle_unsupported()
-            elif "video_versions" in post:
-                links.append(post["video_versions"][0]["url"])
-            elif "image_versions2" in post:
-                links.append(post["image_versions2"]["candidates"][0]["url"])
+                        self.log(f'Received invalid story share from @{sender}...')
+                        self.handle_unsupported('story', sender_id)
+                elif "message" in msg["story_share"]:
+                    if "has a private account" in msg["story_share"]["message"]:
+                        self.handle_unsupported('private', sender_id)
+                    elif "no longer available" in msg["story_share"]["message"]:
+                        self.handle_unsupported('expired', sender_id)
+                    else:
+                        self.handle_unsupported('unavailable', sender_id)
+
+            elif item_type == 'clip':  # Reels post
+                reel = msg["clip"]["clip"]
+                if "video_versions" in reel:
+                    self.log(f'Processing reel post from @{sender}...')
+                    links.append(reel["video_versions"][0]["url"])
+                else:
+                    self.log(f'Received invalid reel share from @{sender}...')
+                    self.handle_unsupported('reel', sender_id)
+
+            elif item_type == 'felix_share':  # IGTV post
+                igtv = msg["felix_share"]
+                if "video" in igtv:
+                    self.log(f'Processing igtv video from @{sender}...')
+                    links.append(igtv["video"]["video_versions"][0]["url"])
+                else:
+                    self.log(f'Received invalid igtv share from @{sender}...')
+                    self.handle_unsupported('igtv', sender_id)
+
+            elif item_type == 'profile':  # Profile share
+                profile = msg["profile"]
+                if "profile_pic_url" in profile:
+                    self.log(f'Processing profile share from @{sender}...')
+                    links.append(profile["profile_pic_url"])
+                else:
+                    self.log(f'Received invalid profile share from @{sender}...')
+                    self.handle_unsupported('profile', sender_id)
+
+            elif item_type == 'text' or item_type == 'link':  # Text message
+                self.log(f'Received text from @{sender}...')
+                if sender in config["admin_usernames"]:
+                    text = msg["text"].lower()
+                    prefix = config["admin_command_prefix"]
+                    if text.startswith(prefix):
+                        command = text[len(prefix):]
+                        return self.handle_admin_command(command, sender)
+                    else:
+                        self.handle_unsupported('text', sender_id)
+                else:
+                    self.handle_unsupported('text', sender_id)
+
+            # Unsupported media types
+            elif item_type == 'media':  # Media
+                self.log(f'Received unsupported direct media from @{sender}...')
+                self.handle_unsupported('media', sender_id)
+            elif item_type == 'raven_media':  # Disappearing media
+                self.log(f'Received unsupported disappearing media from @{sender}...')
+                self.handle_unsupported('disappearing_media', sender_id)
+            elif item_type == 'voice_media':  # Voice message
+                self.log(f'Received unsupported voice media from @{sender}...')
+                self.handle_unsupported('voice_media', sender_id)
+            elif item_type == 'animated_media':  # Stickers and gifs
+                self.log(f'Received unsupported animated media from @{sender}...')
+                self.handle_unsupported('animated_media', sender_id)
             else:
-                self.handle_unsupported()
-        elif item_type == 'clip':  # Reels post
-            reel = msg["clip"]["clip"]
-            if "video_versions" in reel:
-                links.append(reel["video_versions"][0]["url"])
-            else:
-                self.handle_unsupported()
-        elif item_type == 'story_share':  # Photo / video story
-            story = msg["story_share"]["media"]
-            if "video_versions" in story:
-                links.append(story["video_versions"][0]["url"])
-            elif "image_versions2" in story:
-                links.append(story["image_versions2"]["candidates"][0]["url"])
-            else:
-                self.handle_unsupported()
-        elif item_type == 'felix_share':  # IGTV post
-            igtv = msg["felix_share"]
-            if "video" in igtv:
-                links.append(igtv["video"]["video_versions"][0]["url"])
-            else:
-                self.handle_unsupported()
-        elif item_type == 'text':  # Text message
-            if sender in config["admin_usernames"]:
-                text = msg["text"].lower()
-                prefix = config["admin_command_prefix"]
-                if text.startswith(prefix):
-                    command = text[len(prefix):]
-                    return self.handle_admin_command(command, sender)
-            else:
-                self.handle_unsupported()
-        elif item_type == 'media':  # Media
-            self.handle_unsupported()
-        elif item_type == 'raven_media':  # Disappearing media
-            self.handle_unsupported()
-        elif item_type == 'voice_media':  # Voice message
-            self.handle_unsupported()
-        elif item_type == 'animated_media':  # Sticker and gifs
-            self.handle_unsupported()
+                self.handle_unsupported('unsupported', sender_id)
+        except:
+            self.handle_unsupported('error', sender_id)
+
         self._session.post(config["urls"]["seen"].format(thread_id=thread["thread_id"], item_id=msg["item_id"]))
-        print(links)
+        for link in links:
+            self.send_link(sender_id, link, 'text here')
         return True
 
-    def greet_user(self):
-        pass  # Welcome user and tell them what is supported and what isn't
+    def greet_user(self, recipient):
+        # Welcome user and tell them what is supported and what isn't
+        self.send_message(recipient, config["lang"]["greet"])
+        return
 
-    def handle_unsupported(self):
-        pass  # Tell the user that the media type is not supported
+    def handle_unsupported(self, reason, recipient):
+        # Tell the user that the media type is not supported
+        if reason == 'error':
+            msg = config["lang"]["error"]
+        elif reason == 'unsupported':
+            msg = config["lang"]["unsupported"]
+        elif reason == 'private':
+            msg = config["lang"]["private"]
+        elif reason == 'deleted':
+            msg = config["lang"]["deleted"]
+        elif reason == 'expired':
+            msg = config["lang"]["expired"]
+        elif reason == 'unavailable':
+            msg = config["lang"]["unavailable"]
+        elif reason == 'carousel_item':
+            msg = config["lang"]["invalid_slides_item"]
+        elif reason == 'post':
+            msg = config["lang"]["invalid_post_type"]
+        elif reason == 'story':
+            msg = config["lang"]["invalid_story_type"]
+        elif reason == 'reel':
+            msg = config["lang"]["invalid_reel_type"]
+        elif reason == 'igtv':
+            msg = config["lang"]["invalid_igtv_type"]
+        elif reason == 'profile':
+            msg = config["lang"]["no_profile_icon"]
+        elif reason == 'text':
+            msg = config["lang"]["no_text_messages"]
+        elif reason == 'media':
+            msg = config["lang"]["no_media"]
+        elif reason == 'disappearing_media':
+            msg = config["lang"]["no_disappearing_media"]
+        elif reason == 'voice_media':
+            msg = config["lang"]["no_voice_messages"]
+        elif reason == 'animated_media':
+            msg = config["lang"]["no_stickers_gifs"]
+        else:
+            msg = 'Something went wrong...'
+        self.send_message(recipient, msg)
+        return
 
     def handle_admin_command(self, command, admin):
         if command == 'shutdown':
@@ -640,11 +852,11 @@ def get_legacy_session_filename(username: str) -> str:
 
 if __name__ == '__main__':
     open('log.txt', "w+")  # Wipe / create log file
-    print('    ____           __        ____                      __                __          ')
-    print('   /  _/___  _____/ /_____ _/ __ \____ _      ______  / /___  ____ _____/ /__  _____ ')
-    print('   / // __ \/ ___/ __/ __ `/ / / / __ \ | /| / / __ \/ / __ \/ __ `/ __  / _ \/ ___/ ')
-    print(' _/ // / / (__  ) /_/ /_/ / /_/ / /_/ / |/ |/ / / / / / /_/ / /_/ / /_/ /  __/ /     ')
-    print('/___/_/ /_/____/\__/\__,_/_____/\____/|__/|__/_/ /_/_/\____/\__,_/\__,_/\___/_/      ')
+    print('     ____           __        ____                      __                __          ')
+    print('    /  _/___  _____/ /_____ _/ __ \____ _      ______  / /___  ____ _____/ /__  _____ ')
+    print('    / // __ \/ ___/ __/ __ `/ / / / __ \ | /| / / __ \/ / __ \/ __ `/ __  / _ \/ ___/ ')
+    print('  _/ // / / (__  ) /_/ /_/ / /_/ / /_/ / |/ |/ / / / / / /_/ / /_/ / /_/ /  __/ /     ')
+    print(' /___/_/ /_/____/\__/\__,_/_____/\____/|__/|__/_/ /_/_/\____/\__,_/\__,_/\___/_/      ')
     print('')
     with open('config.json') as config_json:
         config = json.load(config_json)
@@ -654,7 +866,7 @@ if __name__ == '__main__':
     password = creds["password"]
     worker = InstaDownloader()
     worker.setup_session(username)
-    worker.log("Logged in as %s." % username)
+    worker.log(f"Logged in as @{username}.")
     try:
         worker.main()
     except KeyboardInterrupt:
