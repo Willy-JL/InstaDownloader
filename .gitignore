@@ -1,4 +1,4 @@
 .idea/
 venv/
-*.sessions
+*.session
 log.txt
