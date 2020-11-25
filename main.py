@@ -7,10 +7,7 @@ import uuid
 import atexit
 import pickle
 import random
-import getpass
 import hashlib
-import platform
-import tempfile
 import textwrap
 import requests
 import urllib.parse
@@ -408,7 +405,7 @@ class InstaDownloader:
                      f'Headers: {send_msg.request.headers}\n'
                      f'Response: {send_msg.text}')
 
-    def send_link(self, recipient, link, text):
+    def send_link(self, recipient, link):
         send_link = self._session.post(config["urls"]["send_link"], data={
             'link_text': link,
             'link_urls': f'["{link}"]',
@@ -599,7 +596,7 @@ class InstaDownloader:
             self.handle_unsupported('error', sender_id)
 
         for link in links:
-            self.send_link(sender_id, link, 'text here')
+            self.send_link(sender_id, link)
         return True
 
     def greet_user(self, recipient):
@@ -774,28 +771,6 @@ class RateController:
                                 repeat_at_end=False)
         if waittime > 0:
             self.sleep(waittime)
-
-
-def get_default_session_filename(username: str) -> str:
-    """Returns default session filename for given username."""
-    sessionfilename = "session-{}".format(username)
-    if platform.system() == "Windows":
-        # on Windows, use %LOCALAPPDATA%\InstaDownloader\session-USERNAME
-        localappdata = os.getenv("LOCALAPPDATA")
-        if localappdata is not None:
-            return os.path.join(localappdata, "InstaDownloader", sessionfilename)
-        # legacy fallback - store in temp dir if %LOCALAPPDATA% is not set
-        return os.path.join(tempfile.gettempdir(), ".instadownloader-" + getpass.getuser(), sessionfilename)
-    # on Unix, use ~/.config/instadownloader/session-USERNAME
-    return os.path.join(os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "instadownloader",
-                        sessionfilename)
-
-
-def get_legacy_session_filename(username: str) -> str:
-    """Returns legacy (until v4.4.3) default session filename for given username."""
-    dirname = tempfile.gettempdir() + "/" + ".instadownloader-" + getpass.getuser()
-    filename = dirname + "/" + "session-" + username
-    return filename.lower()
 
 
 if __name__ == '__main__':
