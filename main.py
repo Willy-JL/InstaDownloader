@@ -435,58 +435,6 @@ class InstaDownloader:
                                       'sec-fetch-site': 'same-site',
                                       'X-IG-App-ID': '567067343352427'})
 
-        """
-        upload_id = int(round(time.time() * 10000))
-        thread_id = 340282366841710300949128138086638340421
-        img_bytes = open('test2.jpg', 'rb').read()
-        self._session.headers.update({
-            'referer': None,  # f'https://www.instagram.com/direct/t/{thread_id}',
-            'sec-fetch-dest': None,
-            'sec-fetch-mode': None,
-            'sec-fetch-site': None,  # 'same-origin',
-            'Content-type': "application/x-www-form-urlencoded; charset=UTF-8",
-            'Expect': '100-continue',
-            'Offset': '0',
-            'X-Entity-Length': str(len(img_bytes)),
-            'X-Entity-Name': 'image/jpeg',  # f'direct_{upload_id}',
-            'X-Entity-Type': 'image/jpeg',
-            'X-Istagram-Rupload-Params': json.dumps({
-                'upload_media_height': "0",
-                'direct_v2': "1",
-                'upload_media_width': "0",
-                'upload_media_duration_ms': "0",
-                'upload_id': str(upload_id),
-                'retry_context': json.dumps({
-                    'num_step_auto_retry': 0,
-                    'num_reupload': 0,
-                    'num_step_manual_retry': 0
-                }),
-                'media_type': "1"
-            }),
-            'x-instagram-ajax': None,  # 'bc3d5af829ea',
-            'X-IG-Capabilities': '3Q4=',
-            'X-IG-Connection-Type': 'WIFI',
-            'X_FB_VIDEO_WATERFALL_ID': str(uuid.uuid4()),
-            'x-ig-www-claim': None,  # 'hmac.AR12vyN6Dx6fOn4XsPl-LmkVZPgwUDD7dz-Q3dDNKmDERvHK',
-            'Origin': None,
-            'X-Requested-With': None,
-            'C-CSRFToken': None,
-            'Cookie2': '$Version=1',
-            'Host': 'i.instagram.com',
-            "Accept-Encoding": "gzip, deflate",
-            "Accept-Language": "en-US",
-            "X-CSRFToken": None,
-            "User-Agent": "Instagram 89.0.0.21.101 Android (19/4.4; 320dpi; 720x1280; Xiaomi; HM 1SW; armani; qcom; en_US)"
-        })
-        self._session.cookies.set('rur', 'PRN')
-        self._session.cookies.set('ds_user', '_insta.downloader_')
-        upl = self._session.post(config["urls"]["image_upload"].format(upload_id=upload_id), data=img_bytes)
-        print(upl.status_code)
-        print(upl.request.headers)
-        print(upl.text)
-        print(upl.url)
-        """
-
         while self.handle_inbox():
             time.sleep(config["inbox_refresh_delay"])
 
@@ -537,6 +485,7 @@ class InstaDownloader:
         return True
 
     def handle_message(self, msg, sender, sender_id, thread):
+        self._session.post(config["urls"]["seen"].format(thread_id=thread["thread_id"], item_id=msg["item_id"]))
         if len(thread["items"]) == 1:
             self.greet_user(sender_id)
         item_type = msg["item_type"]
@@ -626,7 +575,7 @@ class InstaDownloader:
                     prefix = config["admin_command_prefix"]
                     if text.startswith(prefix):
                         command = text[len(prefix):]
-                        return self.handle_admin_command(command, sender)
+                        return self.handle_admin_command(command, sender, sender_id)
                     else:
                         self.handle_unsupported('text', sender_id)
                 else:
@@ -650,7 +599,6 @@ class InstaDownloader:
         except:
             self.handle_unsupported('error', sender_id)
 
-        self._session.post(config["urls"]["seen"].format(thread_id=thread["thread_id"], item_id=msg["item_id"]))
         for link in links:
             self.send_link(sender_id, link, 'text here')
         return True
@@ -701,9 +649,10 @@ class InstaDownloader:
         self.send_message(recipient, msg)
         return
 
-    def handle_admin_command(self, command, admin):
+    def handle_admin_command(self, command, admin, admin_id):
         if command == 'shutdown':
             self.log(f'Received shutdown command from {admin}, shutting down...')
+            self.send_message(admin_id, 'Shutting down...')
             return False
         return True
 
