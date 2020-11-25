@@ -16,7 +16,7 @@
         "send_link": "https://i.instagram.com/api/v1/direct_v2/threads/broadcast/link/"
     },
     "lang": {
-        "greet": "Welcome to InstaDownloader! We currently support: Posts (photo, video and slides), Stories (photo and video), Reels (up to 60s), IGTVs (up to 60s) and Profiles (user icon). Please refrain from sending anything other than those media types. Processing can take a while so please don't spam!",
+        "greet": "Welcome to InstaDownloader! We currently support: Posts (photo, video and slides), Stories (photo and video), Reels, IGTVs and Profiles (user icon). Please refrain from sending anything other than those media types.",
         "error": "Something went wrong...",
         "unsupported": "That content type is not supported!",
         "private": "That account is private, we'll try to follow them!",
