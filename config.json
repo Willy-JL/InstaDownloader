@@ -1,7 +1,6 @@
 {
     "inbox_refresh_delay": 15,
     "inbox_limit": 50,
-    "bot_user_id": 40381479993,
     "admin_usernames": ["willyjl_"],
     "admin_command_prefix": "!",
     "user_agent": "Instagram 89.0.0.21.101 Android (19/4.4; 320dpi; 720x1280; Xiaomi; HM 1SW; armani; qcom; en_US)",
@@ -13,7 +12,6 @@
         "pending_inbox": "https://i.instagram.com/api/v1/direct_v2/pending_inbox/?cursor=",
         "accept_pending": "https://i.instagram.com/api/v1/direct_v2/threads/approve_multiple/",
         "seen": "https://i.instagram.com/api/v1/direct_v2/threads/{thread_id}/items/{item_id}/seen/",
-        "image_upload": "https://i.instagram.com/rupload_igphoto/direct_{upload_id}",
         "send_message": "https://i.instagram.com/api/v1/direct_v2/threads/broadcast/text/",
         "send_link": "https://i.instagram.com/api/v1/direct_v2/threads/broadcast/link/"
     },
