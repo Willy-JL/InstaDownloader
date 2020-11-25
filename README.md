@@ -9,6 +9,7 @@ Code behind [`_insta.downloader_`](https://www.instagram.com/_insta.downloader_/
 - Reels
 - IGTVs
 - Profiles (user icon)
+
 The bot will reply anyway even if the media isn't supported
 
 ## How to use
@@ -22,8 +23,8 @@ Just send posts, stories, or any other supported media type by DM to [`_insta.do
 - Edit `config.json` to your liking (I suggest you only change `inbox_refresh_delay`, `inbox_limit`, `admin_usernames` and `admin_command_prefix`)
 - Run `main.py` with Python
 
-## Requirements:
-- [Python 3](https://www.python.org/downloads/)
+## Requirements
+- [Python 3.8](https://www.python.org/downloads/)
    - requests (`pip install requests`)
    - urllib3 (`pip install urllib3`)
 
