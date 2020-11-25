@@ -474,7 +474,7 @@ class InstaDownloader:
             last_msg = thread["items"][0]
             sender = thread["thread_title"]
             sender_id = last_msg["user_id"]
-            if sender_id != config["bot_user_id"]:
+            if sender_id != self.user_id:
                 if not self.handle_message(last_msg, sender, sender_id, thread):
                     return False
         self.log('All done!')
