@@ -29,5 +29,5 @@ Just send posts, stories, or any other supported media type by DM to [`_insta.do
    - urllib3 (`pip install urllib3`)
 
 
-## Thanks:
+## Credits:
 Huge thanks to [Instaloader](https://github.com/instaloader/instaloader), I did get a big chunk of the auth from there.
